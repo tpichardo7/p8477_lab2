@@ -5,6 +5,7 @@ output: github_document
 
 ```{r setup, include=FALSE}
 library(deSolve)
+library(tidyverse)
 ```
 
 # Ordinary Differential Equations (ODE)
@@ -129,4 +130,51 @@ times = seq(1, 100, by = 1) # setting simulation time steps: 1 to 100 days
 sim = ode(y = state, times = times, func = SIR, parms = parameters)
 ```
 
+## Step 4: Check the Model Outputs
+```{r}
+print(sim)
 
+head(sim, 3)
+tail(sim, 1)
+
+colnames(sim)
+```
+
+# Homework 2: SIR Simulation
+1. Based on the simulation, 45,209 people are susceptible on Day 50 and 32,431 are susceptible at the end of the simulation.
+
+2. Based on the simulation, 7,164 people are infectious on Day 50 and 11 are infectious at the end of the simulation.
+
+3. Based on the simulation, 54,790 people have been infected by Day 50 and 67,568 have been infected by the end of the simulation.
+
+4. 
+```{r}
+ggplot(sim, aes(x = time, y = S, color = time)) +
+  geom_point(alpha = 0.6) 
+
+ggplot(sim, aes(x = time, y = I, color = time)) +
+  geom_point(alpha = 0.6)
+```
+
+
+
+```{r}
+percent_S = S0/N
+percent_I= I0/N
+percent_cumI = I0/N
+
+percent_state = c(S = percent_S, I = percent_I, cumI = percent_cumI)
+percent_sim = ode(y = percent_state, times = times, func = SIR, parms = parameters)
+```
+
+5. Based on the simulation, 
+
+
+6. 
+```{r}
+ggplot(sim, aes(x = time, y = S, color = time)) +
+  geom_point(alpha = 0.6) 
+
+ggplot(sim, aes(x = time, y = I, color = time)) +
+  geom_point(alpha = 0.6)
+```

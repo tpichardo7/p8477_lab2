@@ -1,0 +1,489 @@
+---
+title: 'Lab 2: SIR Model'
+subtitle: Script to test the SIR Model
+date: "2024-01-24"
+author: 
+- Wan Yang (original code)
+- Stephen Uong (tidy edit)
+output:
+  html_document:
+    df_print: paged
+---
+
+NOTE: Please focus on the questions in the lab slides (i.e. pdf file)
+
+-   Those are the core questions you need to answer.
+-   Any additional questions in this R script are meant as guidelines.
+
+If you haven't had it installed yet, run the following first:
+
+```{r, eval = FALSE}
+install.packages('pacman')
+```
+
+The pacman::p_load() function loads and installs packages if they are not yet installed.
+
+```{r}
+library(pacman)
+pacman::p_load(
+  deSolve,
+  tidyverse,
+  magrittr,
+  # for animated plots
+  gganimate,
+  gifski
+)
+```
+
+# A. TUTORIAL
+
+## A1. PRE-LAB: TRY THE ODE SOLVER
+
+SIMPLE ODE:
+
+$\large\frac{dy}{dx} = x^2$
+
+### Step 1: Code the ODE model (or function here)
+
+```{r}
+myfunc <- function(x, y, parms) {
+  dy <- x^2
+  dy %>% list()
+}
+```
+
+### Step 2: Specify initial conditions/parameters
+
+```{r}
+# The 'time' step to integrate upon state <- c(y = 0)
+xs <- seq(from = 0, to = 10, by = 0.2) 
+state <- c(y = 0) # Create labeled vector with y = 0
+```
+
+### Step 3: Call the ode function to generate the simulation
+
+```{r}
+out <- deSolve::ode(y = state,
+                    times = xs,
+                    func = myfunc,
+                    parms = NULL)
+```
+
+The analytic solution for this problem (i.e. true solution here)
+
+```{r}
+y.true <- (1/3)*xs^3
+```
+
+### Step 4: Check model outputs
+
+#### Checking data frame
+
+```{r}
+# Clean ode output
+out_df <- out %>% 
+  tibble::as_tibble() %>% # Change format from matrix to a tibble data frame
+  tibble::add_column(y.true = y.true) %>% # Add in y.true as a column 
+  dplyr::mutate_all(as.numeric) # Make all columns numeric (from deSolve data type)
+
+# tidyr::# To see the whole output - the out data frame here
+out_df %>% View()  
+
+# Print column names using the colnames function, so you can refer to them by name
+out_df %>% colnames()
+
+# Print part of the model output to see data structure
+out_df %>% head(nrow = 3) # this prints the first 3 lines of the model output
+out_df %>% tail(nrow = 6) # this prints the last 6 lines of the model output
+
+# To get the first column of the output (time)
+  # use column indexing 
+out_df %>% dplyr::select(1)
+  # use the column name
+out_df %>% dplyr::select(time)
+
+# Similarly to get the 2nd column of the output
+  # use column indexing 
+out_df %>% dplyr::select(2)
+  # use the column name
+out_df %>% dplyr::select(y)
+
+
+# Now try checking the rows (e.g., print 3rd row of the output)
+out_df %>% dplyr::slice(3)
+
+# Now try specific row & column
+out_df %>% dplyr::slice(3) %>% dplyr::select(2)       # row 3, column 2
+out_df %>% dplyr::slice(3) %>% dplyr::select(time) # row 3, column time
+out_df %>% dplyr::filter(time == 3) # row where time == 3
+out_df %>% dplyr::filter(time >= 3 & time < 4) # rows where time >= 3 & < 4
+out_df %>% dplyr::filter(y >= 10 & y < 11) # row where y >= 10 & < 11
+
+```
+
+#### Plotting values
+
+```{r}
+# Now plot to check if the ode is working
+  # Plot y and y.true
+out_df %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = y.true, color = 'Analytic solution: y.true'), linetype = 'dotted', size = 2) +
+  geom_line(aes(y = y, color = 'Numerical solution: ODE'), linetype = 'solid') +
+  scale_color_manual(values = c('red','black')) + 
+  labs(x = 'Time', y = 'y', color = 'Solution Type', linetype = 'Solution Type') +
+  theme(legend.position = 'bottom')
+  # Plot y only
+out_df %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = y), linetype = 'solid') +
+  labs(x = 'Time', y = 'y', color = 'Solution Type') 
+
+```
+
+## A2. SIMULATION USING THE SIR MODEL
+
+### Step 1: Code the SIR model (or function here)
+
+```{r}
+SIR <- function(t, state, parameters) {
+  c(state, parameters) %>% # Concatenate state and parameter variables
+  as.list %>%              # Coerce to list object (needed for with function)
+  with({                 # Refer to variables by short name within list (e.g., beta vs. parameters$beta) 
+    # Rate of change
+    dS <- -beta*S*I/N
+    dI <-  beta*S*I/N - gamma*I
+    # Optional: also compute the cumulative number of infection
+    dcumI <- beta*S*I/N
+    # Return the rate of change as a list
+    c(dS, dI, dcumI) %>% list()
+  }) 
+}
+
+```
+
+### Step 2: Specify initial conditions/parameters
+
+```{r}
+N <- 1e5 # Population size
+I0 <- 10 # Initial No. of Infectious people
+S0 <- N - I0 # Initial No. of Susceptible people
+# Store the initial conditions I & S together  
+state <- c(S = S0,        
+           I = I0, 
+           cumI = I0)
+# Store the model parameters, unit: per day
+parameters <- c(beta = 0.5, 
+                gamma = 0.3) 
+# Set simulation time steps: 1 to 100 days here
+times <- seq(from = 1, to = 100, by = 1)  
+```
+
+### Step 3: Call the ode function to generate the simulation
+
+```{r}
+sim <- ode(y = state,
+           times = times,
+           func = SIR,
+           parms = parameters)
+```
+
+### Step 4: Check model outputs
+
+```{r}
+sim_df <- sim %>% 
+  tibble::as_tibble() %>% # Change format from matrix to a tibble data frame
+  dplyr::mutate_all(as.numeric) # Make all columns numeric
+
+sim_df %>% View()  # to see what's in the model output 'sim'
+
+# Print part of the model simput to see data structure
+sim_df %>% head(nrow = 3) # this prints the first 3 lines of the model output
+sim_df %>% tail(nrow = 1) # this prints the last line of the model output
+
+# Print column names using the colnames function, so you can refer to them by name
+sim_df %>% colnames()
+
+# To get the column for simulation
+sim_df %>% dplyr::select(1) # use column indexing 
+sim_df %>% dplyr::select(time) # use the column name
+
+# get output on specific day using column name
+sim_df %>% dplyr::filter(time == 10)
+
+
+```
+
+## A3. PRACTICE: CODE IT YOURSELF
+
+### 3.1. Get the column for simulated number of Susceptibles
+
+```{r}
+
+```
+
+### 3.2. Get the column for simulated number of Infectious:
+
+```{r}
+
+```
+
+### 3.3. Visualize model outputs
+
+Plot the following:
+
+```{r}
+# S over time
+
+# I over time
+
+# Compare S and I in one graph
+
+# Compare S and cumI - think about the trend and why
+
+```
+
+# B. HOMEWORK QUESTIONS (CODE IT YOURSELF)
+
+## B1. SET 1: Code It Yourself
+
+### Question 1
+
+```{r}
+# [LQ1] What is the number of susceptibles on Day 50? 
+
+
+# [LQ1] What is the number of susceptibles at the end of the simulation? 
+
+
+```
+
+### Question 2
+
+```{r}
+# [LQ2] What is the number of Infectious on Day 50? 
+
+
+# [LQ2] What is the number of Infectious at the end of the simulation? 
+
+
+```
+
+### Question 3
+
+```{r}
+# [LQ3] Based on the simulation, how many people have been infected by Day 50? 
+
+
+# [LQ3] How many people have been infected by the end of simulation? 
+
+
+```
+
+### Question 4
+
+```{r}
+# [LQ4] CODE IT YOURSELF - Plot model simulated number of Susceptibles for each day during the simulation period
+
+
+# [LQ4] CODE IT YOURSELF - Plot model simulated number of Infectious for each day over time during the simulation period
+
+
+```
+
+## B2. Output Processing 1. Processing and Visualizing Model Outputs
+
+### B2.1. Convert numbers to fractions relative to the population size (for easier comparison across populations of different sizes)
+
+```{r}
+sim_df_frac <- sim_df %>% 
+  dplyr::mutate(s_frac = (S/N)*100, # %S
+                i_frac = (I/N)*100, # %I
+                cumi_frac = (cumI/N)*100) # % cumulative infections
+```
+
+### B2.2. Plot fraction susceptible over time
+
+```{r}
+# Show as percentage: 
+sim_df_frac %>% 
+  ggplot(aes(x = times, y = s_frac)) + 
+  geom_line() +
+  labs(x = 'Time (days)', y = 'Fraction Susceptible (%)')
+```
+
+## B3. SET 2: Code It Yourself
+
+### Question 5
+
+```{r}
+# [LQ5] Based on the simulation, What is the population susceptibility (i.e. %S) at the end of simulation? What percentage of the population are infectious at the end of simulation?  What percentage of the population have been infected by the end of simulation?
+
+
+```
+
+### Question 6
+
+```{r}
+# [LQ6] Plot the outputs %I and %S for each day during the simulated time period.
+
+```
+
+## B4. Output Processing 2
+
+```{r}
+# Convert the daily outputs to weekly outputs
+numWk <- times %>% length() %>% magrittr::divide_by(7) %>% ceiling()
+tmstep <- 7
+## Get the number of:
+## - Susceptibles/Infectious for 4th day of each week (i.e. middle of the week) 
+## - New Infections - these are cumulative numbers so need to get the increment (i.e., new infection) for each week
+# Get index values
+idx_day4 <- seq(4, length.out = numWk - 1, by  = tmstep)
+idx_day1 <- seq(1, length.out = numWk    , by  = tmstep) # Keep 1 extra row to calculate diff
+# Subset rows in data frames
+sim_day4 <- sim_df %>% 
+  dplyr::slice(idx_day4)
+sim_day1_change <- sim_df %>% 
+  dplyr::slice(idx_day1) %>% 
+  dplyr::mutate(cumI_change = lead(cumI) - cumI) %>% 
+  dplyr::filter(!is.na(cumI_change)) # drop last row with missing change value
+# Create data frame with all values
+out.weekly <- tibble(
+  # Week column is just the number of week
+  Week = 0:(numWk - 1), 
+  # Number susceptibles - this is sort of a snapshot of the epidemic
+    # use the initial susceptibility for the 1st entry
+  Number_Susceptibles   = c(S0, sim_day4        %>% pull(S)),
+  # Number infectious - this is the prevalence
+    # use the initial # infectious for the 1st entry
+  Number_Infectious     = c(I0, sim_day4        %>% pull(I)),
+  # Number cumulative infections
+    # Cumulative infections on the start of week 2, 3, ... (0 for 1st week)
+  Number_Infections_New = c(0 , sim_day1_change %>% pull(cumI_change)))
+out.weekly
+
+
+```
+
+## B5. SET 3: Code It Yourself
+
+### Question 7
+
+```{r}
+# [Q7] How many people are infected on Week 7? (0.5pt)
+
+
+```
+
+### Question 8
+
+```{r}
+# [LQ8] Plot number of Susceptibles mid-week over time (0.5pt)
+
+
+```
+
+### Question 9
+
+```{r}
+# [LQ9] Plot number of Infectious mid-week over time (0.5pt)
+
+```
+
+### Question 10
+
+```{r}
+# [LQ10] Plot number of New Infections each week over time (0.5pt)
+
+
+```
+
+# C. Code for Demo
+
+You can use the following code to see the change in S and I step by step in an animated plot
+
+```{r}
+### Specify initial variables
+# Note: S0, I0, parameters, and N are still the same as above
+numwk <- 15 
+tmstep <- 7 # weekly increase
+
+### Run simulation by week
+for (wk in 1:numwk){
+  # For first week, initialize objects and preliminary state
+  if(wk == 1){
+    times_wk <- list()
+    sim_wk   <- list()
+    state_wk <- list(c(S = S0, I = I0, cumI = I0))
+  }
+  # For each week, specify times
+  times_wk[[wk]] <- seq(from = tmstep*(wk-1) + 1,
+                        to   = tmstep* wk    + 1,
+                        by   = 1)
+  # For each week, run simlulation
+  sim_wk[[wk]] <- ode(y     = state_wk[[wk]],
+                      times = times_wk[[wk]],
+                      func  = SIR,
+                      parms = parameters) %>% 
+                  dplyr::as_tibble() %>% 
+                  dplyr::mutate_all(as.numeric)
+  # For next week, save new state (so this state can be used in that week)
+  state_wk[[wk + 1]] <- c(S    = sim_wk[[wk]] %>% dplyr::slice(n()) %>% dplyr::pull(S),
+                          I    = sim_wk[[wk]] %>% dplyr::slice(n()) %>% dplyr::pull(I),
+                          cumI = sim_wk[[wk]] %>% dplyr::slice(n()) %>% dplyr::pull(cumI))
+}
+
+### Clean data
+sim_all <- sim_wk %>% 
+  dplyr::bind_rows() %>% # Coerce list to data frame
+  dplyr::distinct() %>% # Remove duplicate rows (same S/I/cumI at end/beginning of weeks)
+  dplyr::mutate(wk = (time/7) %>% ceiling(),
+                s_frac = (S/N)*100, # %S
+                i_frac = (I/N)*100, # %I
+                cumi_frac = (cumI/N)*100)
+
+### Plot S, I, and cumI (N) over time
+# Static plot
+sim_plot <- sim_all %>% 
+  tidyr::pivot_longer(cols = c(S, I, cumI), 
+                      names_to = 'state',
+                      values_to = 'n') %>% 
+  ggplot(aes(x = time, y = n, color = state)) + 
+  geom_point() +
+  labs(x = 'Day', y = 'N', color = 'State') +
+  scale_color_manual(values = c('violetred4','violetred2','steelblue2')) +
+  expand_limits(x = 0, y = 0) +
+  theme_bw()
+sim_plot
+# Dynamic/animated plot
+sim_anim <- sim_plot + 
+  gganimate::transition_states(wk) +
+  labs(title = 'Week: {closest_state}') +
+  shadow_mark(alpha = 0.3, size = 0.5) 
+sim_anim %>% gganimate::animate(renderer = gifski_renderer())
+
+
+### Plot S, I, and cumI (%) over time
+# Same code as above but just use the s_frac, i_frac, and cumi_frac columns now
+# Static plot
+sim_plot_frac <- sim_all %>% 
+  tidyr::pivot_longer(cols = c(s_frac, i_frac, cumi_frac), 
+                      names_to = 'state',
+                      values_to = 'n') %>% 
+  ggplot(aes(x = time, y = n, color = state)) + 
+  geom_point() +
+  labs(x = 'Day', y = 'Percentage', color = 'State') +
+  scale_color_manual(values = c('violetred4','violetred2','steelblue2')) +
+  expand_limits(x = 0, y = 0) +
+  theme_bw()
+sim_plot_frac
+# Dynamic/animated plot
+sim_anim_frac <- sim_plot_frac + 
+  gganimate::transition_states(wk) +
+  labs(title = 'Week: {closest_state}') +
+  shadow_mark(alpha = 0.3, size = 0.5) 
+sim_anim_frac %>% 
+  gganimate::animate(renderer = gifski_renderer())
+
+```

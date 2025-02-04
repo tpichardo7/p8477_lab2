@@ -1,0 +1,75 @@
+---
+title: "Homework 2"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+```{r}
+knitr::opts_chunk$set(
+        echo = TRUE,
+        warning = FALSE,
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() +theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.color = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_color_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+# Part 1: Simulate using the SIR model and check basic model outputs
+Read the SIR function and code provided in the script. Then run it with the following conditions and parameters.
+N = 1e5
+I0 = 10
+S0 = N-I0
+beta = 0.5
+gamma = 0.3
+times = seq(1, 100, by = 1)
+
+## Question 1
+Based on the simulation, how many people are susceptible on Day 50? How many people are susceptible at the end of simulation?
+
+## Question 2
+Based on the simulation, how many people are infectious on Day 50? How many people are infectious at the end of simulation?
+
+## Question 3
+Based on the simulation, how many people have been infected on Day 50? How many people have been infected by the end of simulation?
+
+## Question 4
+Plot the outputs I and S for each day during the simulated time period.
+
+
+# Part 2: Simple analyses of model outputs
+Convert the simulated numbers (#S, #I, #cumI etc.) to fraction relative to the population size
+
+## Question 5
+Based on the simulation, what is the population susceptibility (i.e. %S) at the end of simulation? What percentage of the population are infectious at the end of simulation? What percentage of the population have been infected by the end of simulation?
+
+## Question 6
+Plot the outputs %I and %S for each day during the simulated time period.
+
+
+# Part 3: Simple analyses of model outputs
+Aggregate the simulated daily outputs to weekly outputs. See model code in the script.
+
+## Question 7
+How many people are infected on Week 7?
+
+## Question 8
+Plot number of Susceptibles mid-week over time.
+
+## Question 9
+Plot number of infectious mid-week over time.
+
+## Question 10
+Plot number of New Infectious each week over time. 
